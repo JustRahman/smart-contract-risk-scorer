@@ -1,0 +1,31 @@
+{
+  "name": "smart-contract-risk-scorer",
+  "version": "1.0.0",
+  "description": "AI agent that analyzes smart contracts for security risks and rug pull indicators",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test": "chmod +x test-analysis.sh && ./test-analysis.sh"
+  },
+  "keywords": [
+    "smart-contract",
+    "security",
+    "defi",
+    "rug-pull",
+    "blockchain",
+    "ai-agent"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@lucid-dreams/agent-kit": "^0.2.22",
+    "@hono/node-server": "^1.19.5",
+    "ethers": "^6.9.0",
+    "node-fetch": "^3.3.2",
+    "better-sqlite3": "^9.2.2",
+    "zod": "^3.22.4",
+    "dotenv": "^16.3.1"
+  }
+}
