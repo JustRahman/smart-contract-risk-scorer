@@ -1,6 +1,6 @@
 {
   "name": "smart-contract-risk-scorer",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "AI agent that analyzes smart contracts for security risks and rug pull indicators",
   "main": "src/index.js",
   "type": "module",
