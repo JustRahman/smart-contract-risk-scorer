@@ -374,6 +374,10 @@ const BatchScanInputSchema = z.object({
   scan_depth: z.enum(['quick', 'deep']).default('quick')
 });
 
+// Check if payments are enabled
+const paymentsEnabled = process.env.ENABLE_PAYMENTS === 'true';
+const paymentPrice = paymentsEnabled ? (process.env.PAYMENT_AMOUNT || "0.01") : "0";
+
 // Create agent app
 const app = createAgentApp({
   name: "Smart Contract Risk Scorer",
@@ -389,7 +393,7 @@ app.addEntrypoint({
   key: "analyze_contract",
   description: "Analyze a smart contract for security risks and rug pull indicators. Provides detailed security assessment including code analysis, ownership checks, liquidity verification, and external database checks.",
   inputSchema: ScanInputSchema,
-  pricing: process.env.PAYMENT_AMOUNT || "0.01",
+  pricing: paymentPrice,
   handler: async (input) => {
     try {
       const result = await analyzeContract(input);
@@ -412,7 +416,7 @@ app.addEntrypoint({
   key: "analyze_batch",
   description: "Analyze multiple smart contracts at once (max 10). Returns comprehensive risk assessment for each contract. Useful for comparing multiple tokens or analyzing a portfolio.",
   inputSchema: BatchScanInputSchema,
-  pricing: process.env.PAYMENT_AMOUNT || "0.01",
+  pricing: paymentPrice,
   handler: async (input) => {
     try {
       const { contracts, chain, scan_depth } = input;
