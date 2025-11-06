@@ -383,6 +383,52 @@ async function analyzeContract({ contract_address, chain, scan_depth }) {
   }
 }
 
+// Root endpoint - API information
+app.get('/', async (c) => {
+  return c.json({
+    service: "Smart Contract Risk Scorer",
+    version: "1.0.0",
+    status: "online",
+    payment: {
+      enabled: paymentsEnabled,
+      amount: paymentsEnabled ? "$0.01 USDC" : "Free",
+      network: paymentsEnabled ? "base" : "N/A"
+    },
+    endpoints: {
+      health: {
+        method: "GET",
+        path: "/health",
+        description: "Health check endpoint"
+      },
+      analyze: {
+        method: "POST",
+        path: "/analyze",
+        description: "Analyze a single smart contract",
+        requiresPayment: paymentsEnabled
+      },
+      analyzeBatch: {
+        method: "POST",
+        path: "/analyze-batch",
+        description: "Analyze multiple smart contracts (max 10)",
+        requiresPayment: paymentsEnabled
+      }
+    },
+    example: {
+      endpoint: "/analyze",
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: {
+        contract_address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+        chain: "ethereum",
+        scan_depth: "quick"
+      }
+    },
+    supportedChains: ["ethereum", "polygon", "arbitrum", "optimism", "base"]
+  });
+});
+
 // Add POST endpoint for contract analysis (no payment required)
 app.post('/analyze', async (c) => {
   try {
