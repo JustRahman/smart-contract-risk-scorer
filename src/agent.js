@@ -1,4 +1,4 @@
-import { Hono } from 'hono';
+import { createAgentApp } from '@lucid-dreams/agent-kit';
 import { z } from 'zod';
 import dotenv from 'dotenv';
 import { createEtherscanClient } from './services/etherscan.js';
@@ -22,38 +22,14 @@ import { createTokenSnifferClient } from './services/token-sniffer.js';
 import { createGoPlusClient } from './services/goplus.js';
 import { analyzeContractViaRPC, analyzeBytecode, calculateRPCOnlyRiskScore } from './services/fallback-analyzer.js';
 import { createSourcifyClient } from './services/sourcify.js';
-import { rateLimiter } from './middleware/rate-limit.js';
-import { createPaymentMiddleware } from './middleware/x402-payment.js';
 
 dotenv.config();
 
 /**
- * Smart Contract Risk Scorer Agent with X402 Payment Integration
+ * Smart Contract Risk Scorer Agent
  * Analyzes smart contracts for security risks and rug pull indicators
+ * Using @lucid-dreams/agent-kit for X402 payment integration
  */
-
-// Input validation schema
-const ScanInputSchema = z.object({
-  contract_address: z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid Ethereum address'),
-  chain: z.enum(['ethereum', 'polygon', 'arbitrum', 'optimism', 'base']).default('ethereum'),
-  scan_depth: z.enum(['quick', 'deep']).default('quick')
-});
-
-// Create Hono app
-const app = new Hono();
-
-// Apply rate limiting to all routes
-app.use('*', rateLimiter());
-
-// Apply X402 payment middleware (if enabled)
-const paymentMiddleware = createPaymentMiddleware();
-app.use('/analyze', paymentMiddleware);
-app.use('/analyze-batch', paymentMiddleware);
-
-const paymentsEnabled = process.env.ENABLE_PAYMENTS === 'true';
-if (!paymentsEnabled) {
-  console.log(`💰 Payment system: DISABLED (free for testing)`);
-}
 
 /**
  * Main analysis function
@@ -383,228 +359,121 @@ async function analyzeContract({ contract_address, chain, scan_depth }) {
   }
 }
 
-// Root endpoint - API information
-app.get('/', async (c) => {
-  return c.json({
-    service: "Smart Contract Risk Scorer",
-    version: "1.0.0",
-    status: "online",
-    payment: {
-      enabled: paymentsEnabled,
-      amount: paymentsEnabled ? "$0.01 USDC" : "Free",
-      network: paymentsEnabled ? "base" : "N/A"
-    },
-    endpoints: {
-      health: {
-        method: "GET",
-        path: "/health",
-        description: "Health check endpoint"
-      },
-      analyze: {
-        method: "POST",
-        path: "/analyze",
-        description: "Analyze a single smart contract",
-        requiresPayment: paymentsEnabled
-      },
-      analyzeBatch: {
-        method: "POST",
-        path: "/analyze-batch",
-        description: "Analyze multiple smart contracts (max 10)",
-        requiresPayment: paymentsEnabled
+// ========== AGENT-KIT SETUP ==========
+
+// Input validation schemas
+const ScanInputSchema = z.object({
+  contract_address: z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid Ethereum address'),
+  chain: z.enum(['ethereum', 'polygon', 'arbitrum', 'optimism', 'base']).default('ethereum'),
+  scan_depth: z.enum(['quick', 'deep']).default('quick')
+});
+
+const BatchScanInputSchema = z.object({
+  contracts: z.array(z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid Ethereum address')).min(1).max(10),
+  chain: z.enum(['ethereum', 'polygon', 'arbitrum', 'optimism', 'base']).default('ethereum'),
+  scan_depth: z.enum(['quick', 'deep']).default('quick')
+});
+
+// Create agent app
+const app = createAgentApp({
+  name: "Smart Contract Risk Scorer",
+  description: "AI agent that analyzes smart contracts for security risks and rug pull indicators",
+  version: "1.0.0",
+  payTo: process.env.PAY_TO_WALLET || '0x992920386E3D950BC260f99C81FDA12419eD4594',
+  network: process.env.PAYMENT_NETWORK || 'base',
+  facilitatorUrl: process.env.FACILITATOR_URL || 'https://facilitator.daydreams.systems'
+});
+
+// Add analyze_contract entrypoint
+app.addEntrypoint({
+  key: "analyze_contract",
+  description: "Analyze a smart contract for security risks and rug pull indicators. Provides detailed security assessment including code analysis, ownership checks, liquidity verification, and external database checks.",
+  inputSchema: ScanInputSchema,
+  pricing: process.env.PAYMENT_AMOUNT || "0.01",
+  handler: async (input) => {
+    try {
+      const result = await analyzeContract(input);
+
+      // Check if analysis failed
+      if (result.error) {
+        throw new Error(result.message || 'Analysis failed');
       }
-    },
-    example: {
-      endpoint: "/analyze",
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: {
-        contract_address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
-        chain: "ethereum",
-        scan_depth: "quick"
-      }
-    },
-    supportedChains: ["ethereum", "polygon", "arbitrum", "optimism", "base"]
-  });
-});
 
-// Add POST endpoint for contract analysis (no payment required)
-app.post('/analyze', async (c) => {
-  try {
-    const body = await c.req.json();
-
-    // Validate input
-    const input = ScanInputSchema.parse(body);
-
-    // Run analysis
-    const result = await analyzeContract(input);
-
-    // Check if analysis failed
-    if (result.error) {
-      return c.json(result, 500);
+      return result;
+    } catch (error) {
+      console.error('Analysis error:', error);
+      throw new Error(error.message || 'An unexpected error occurred during analysis');
     }
-
-    return c.json(result);
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return c.json({
-        error: 'Invalid input',
-        message: 'Please provide a valid Ethereum address and chain',
-        details: error.errors.map(e => ({
-          field: e.path.join('.'),
-          message: e.message
-        }))
-      }, 400);
-    }
-
-    console.error('Analysis error:', error);
-    return c.json({
-      error: 'Analysis failed',
-      message: error.message || 'An unexpected error occurred'
-    }, 500);
   }
 });
 
-// Batch analysis endpoint - analyze multiple contracts at once
-app.post('/analyze-batch', async (c) => {
-  try {
-    const body = await c.req.json();
+// Add analyze_batch entrypoint
+app.addEntrypoint({
+  key: "analyze_batch",
+  description: "Analyze multiple smart contracts at once (max 10). Returns comprehensive risk assessment for each contract. Useful for comparing multiple tokens or analyzing a portfolio.",
+  inputSchema: BatchScanInputSchema,
+  pricing: process.env.PAYMENT_AMOUNT || "0.01",
+  handler: async (input) => {
+    try {
+      const { contracts, chain, scan_depth } = input;
 
-    // Validate input
-    if (!body.contracts || !Array.isArray(body.contracts) || body.contracts.length === 0) {
-      return c.json({
-        error: 'Invalid input',
-        message: 'Please provide an array of contracts to analyze'
-      }, 400);
+      console.log(`\n📊 Batch analysis started: ${contracts.length} contracts on ${chain}`);
+
+      // Analyze all contracts in parallel
+      const results = await Promise.allSettled(
+        contracts.map(async (contract_address) => {
+          try {
+            return await analyzeContract({ contract_address, chain, scan_depth });
+          } catch (error) {
+            return {
+              error: 'Analysis failed',
+              message: error.message,
+              contract_address,
+              chain
+            };
+          }
+        })
+      );
+
+      // Compile results
+      const analyzed = results.map((result, index) => ({
+        contract_address: contracts[index],
+        status: result.status,
+        result: result.status === 'fulfilled' ? result.value : result.reason
+      }));
+
+      const successful = analyzed.filter(r => r.status === 'fulfilled' && !r.result.error).length;
+      const failed = analyzed.length - successful;
+
+      console.log(`✅ Batch analysis complete: ${successful} successful, ${failed} failed\n`);
+
+      return {
+        batch_size: contracts.length,
+        successful,
+        failed,
+        results: analyzed
+      };
+    } catch (error) {
+      console.error('Batch analysis error:', error);
+      throw new Error(error.message || 'An unexpected error occurred during batch analysis');
     }
-
-    // Limit batch size
-    if (body.contracts.length > 10) {
-      return c.json({
-        error: 'Batch too large',
-        message: 'Maximum 10 contracts per batch request'
-      }, 400);
-    }
-
-    const chain = body.chain || 'ethereum';
-    const scan_depth = body.scan_depth || 'quick';
-
-    console.log(`\n📊 Batch analysis started: ${body.contracts.length} contracts on ${chain}`);
-
-    // Analyze all contracts in parallel
-    const results = await Promise.allSettled(
-      body.contracts.map(async (address) => {
-        try {
-          const input = ScanInputSchema.parse({
-            contract_address: address,
-            chain,
-            scan_depth
-          });
-          return await analyzeContract(input);
-        } catch (error) {
-          return {
-            error: 'Analysis failed',
-            message: error.message,
-            contract_address: address,
-            chain
-          };
-        }
-      })
-    );
-
-    // Compile results
-    const analyzed = results.map((result, index) => ({
-      contract_address: body.contracts[index],
-      status: result.status,
-      result: result.status === 'fulfilled' ? result.value : result.reason
-    }));
-
-    const successful = analyzed.filter(r => r.status === 'fulfilled' && !r.result.error).length;
-    const failed = analyzed.length - successful;
-
-    console.log(`✅ Batch analysis complete: ${successful} successful, ${failed} failed\n`);
-
-    return c.json({
-      batch_size: body.contracts.length,
-      successful,
-      failed,
-      results: analyzed
-    });
-
-  } catch (error) {
-    console.error('Batch analysis error:', error);
-    return c.json({
-      error: 'Batch analysis failed',
-      message: error.message || 'An unexpected error occurred'
-    }, 500);
   }
 });
 
-// Enhanced health check endpoint
-app.get('/health', async (c) => {
-  const health = {
-    status: 'ok',
-    version: '1.0.0',
-    timestamp: new Date().toISOString(),
-    services: {}
-  };
-
-  // Check RPC connectivity
-  try {
-    const rpcClient = createRPCClient('ethereum');
-    const blockNumber = await rpcClient.getBlockNumber();
-    health.services.rpc = {
-      status: 'ok',
-      current_block: blockNumber
-    };
-  } catch (error) {
-    health.services.rpc = {
-      status: 'error',
-      message: error.message
-    };
-    health.status = 'degraded';
-  }
-
-  // Check Etherscan API
-  try {
-    const etherscanClient = createEtherscanClient('ethereum');
-    await etherscanClient.makeRequest({ module: 'stats', action: 'ethprice' });
-    health.services.etherscan = { status: 'ok' };
-  } catch (error) {
-    health.services.etherscan = {
-      status: 'error',
-      message: 'API unavailable - using fallback mode'
+// Health check endpoint (optional, agent-kit provides this automatically)
+app.addEntrypoint({
+  key: "health",
+  description: "Health check endpoint to verify the service is running",
+  inputSchema: z.object({}),
+  pricing: "0",
+  handler: async () => {
+    return {
+      status: "healthy",
+      service: "Smart Contract Risk Scorer",
+      version: "1.0.0",
+      timestamp: new Date().toISOString()
     };
   }
-
-  // Check GoPlus API
-  try {
-    const goplusClient = createGoPlusClient();
-    health.services.goplus = { status: 'ok' };
-  } catch (error) {
-    health.services.goplus = {
-      status: 'error',
-      message: error.message
-    };
-  }
-
-  // Check cache
-  try {
-    const cache = getCache();
-    health.services.cache = {
-      status: 'ok',
-      type: 'SQLite'
-    };
-  } catch (error) {
-    health.services.cache = {
-      status: 'error',
-      message: error.message
-    };
-  }
-
-  const statusCode = health.status === 'ok' ? 200 : 503;
-  return c.json(health, statusCode);
 });
 
 export { app };

@@ -18,7 +18,7 @@ console.log(`
 ║         SMART CONTRACT RISK SCORER                            ║
 ║         AI Agent for DeFi Security Analysis                   ║
 ║                                                               ║
-║         Version: 1.0.0 with X402 Payment System               ║
+║         Version: 1.0.0 with agent-kit X402 Integration       ║
 ║         Mode: ${paymentsEnabled ? 'PAYMENTS ENABLED         ' : 'FREE TESTING (No Payment)'}║
 ║                                                               ║
 ╚═══════════════════════════════════════════════════════════════╝
@@ -26,6 +26,7 @@ console.log(`
 
 console.log('Starting server...\n');
 
+// Start the agent-kit server (agent-kit apps are Hono apps under the hood)
 serve(
   {
     fetch: app.fetch,
@@ -34,19 +35,16 @@ serve(
   },
   (info) => {
     console.log(`✅ Server running on http://localhost:${info.port}`);
-    console.log(`\nEndpoints:`);
-    console.log(`  - POST /analyze              (Analyze single contract)`);
-    console.log(`  - POST /analyze-batch        (Analyze multiple contracts)`);
-    console.log(`  - GET  /health               (Health check)`);
+    console.log(`\nEntrypoints:`);
+    console.log(`  - analyze_contract           (Analyze single contract)`);
+    console.log(`  - analyze_batch              (Analyze multiple contracts)`);
+    console.log(`  - health                     (Health check)`);
     console.log(`\nSupported Chains:`);
     console.log(`  - Ethereum, Polygon, Arbitrum, Optimism, Base`);
-    console.log(`\nExample Request:`);
-    console.log(`  curl -X POST http://localhost:${info.port}/analyze \\`);
-    console.log(`    -H "Content-Type: application/json" \\`);
-    if (paymentsEnabled) {
-      console.log(`    -H "X-PAYMENT: <payment-header>" \\`);
-    }
-    console.log(`    -d '{"contract_address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", "chain": "ethereum", "scan_depth": "quick"}'`);
+    console.log(`\nAgent UI:`);
+    console.log(`  - Open http://localhost:${info.port} in your browser for the agent interface`);
+    console.log(`\nManifest:`);
+    console.log(`  - http://localhost:${info.port}/manifest.json`);
     if (paymentsEnabled) {
       console.log(`\n💳 Payments: ENABLED - $${process.env.PAYMENT_AMOUNT || '0.01'} USDC on ${process.env.PAYMENT_NETWORK || 'base'}`);
       console.log(`💵 Payment wallet: ${process.env.PAY_TO_WALLET}`);
