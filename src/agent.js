@@ -374,22 +374,33 @@ const BatchScanInputSchema = z.object({
   scan_depth: z.enum(['quick', 'deep']).default('quick')
 });
 
-// Create agent app
-const { app, addEntrypoint } = createAgentApp({
+// Create agent app with conditional payment configuration
+const paymentsEnabled = process.env.ENABLE_PAYMENTS === 'true';
+
+const agentConfig = {
   name: "Smart Contract Risk Scorer",
   description: "AI agent that analyzes smart contracts for security risks and rug pull indicators",
-  version: "1.0.0",
-  payTo: process.env.PAY_TO_WALLET || '0x992920386E3D950BC260f99C81FDA12419eD4594',
-  network: process.env.PAYMENT_NETWORK || 'base',
-  facilitatorUrl: process.env.FACILITATOR_URL || 'https://facilitator.daydreams.systems'
-});
+  version: "1.0.0"
+};
+
+// Only add payment configuration if payments are enabled
+if (paymentsEnabled) {
+  agentConfig.payTo = process.env.PAY_TO_WALLET || '0x992920386E3D950BC260f99C81FDA12419eD4594';
+  agentConfig.network = process.env.PAYMENT_NETWORK || 'base';
+  agentConfig.facilitatorUrl = process.env.FACILITATOR_URL || 'https://facilitator.daydreams.systems';
+}
+
+const { app, addEntrypoint } = createAgentApp(agentConfig);
+
+// Determine pricing based on payment configuration
+const entrypointPrice = paymentsEnabled ? (process.env.PAYMENT_AMOUNT || "0.01") : "0";
 
 // Add analyze_contract entrypoint
 addEntrypoint({
   key: "analyze_contract",
   description: "Analyze a smart contract for security risks and rug pull indicators. Provides detailed security assessment including code analysis, ownership checks, liquidity verification, and external database checks.",
   inputSchema: ScanInputSchema,
-  pricing: process.env.PAYMENT_AMOUNT || "0.01",
+  pricing: entrypointPrice,
   handler: async (input) => {
     try {
       const result = await analyzeContract(input);
@@ -412,7 +423,7 @@ addEntrypoint({
   key: "analyze_batch",
   description: "Analyze multiple smart contracts at once (max 10). Returns comprehensive risk assessment for each contract. Useful for comparing multiple tokens or analyzing a portfolio.",
   inputSchema: BatchScanInputSchema,
-  pricing: process.env.PAYMENT_AMOUNT || "0.01",
+  pricing: entrypointPrice,
   handler: async (input) => {
     try {
       const { contracts, chain, scan_depth } = input;
