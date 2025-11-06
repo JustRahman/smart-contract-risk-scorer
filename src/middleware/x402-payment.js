@@ -25,13 +25,11 @@ export function createPaymentMiddleware() {
   // USDC token address on Base network
   const usdcAddress = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 
-  // Convert price to smallest unit (USDC has 6 decimals)
-  const priceInSmallestUnit = (parseFloat(price) * 1000000).toString();
-
   // Payment route configuration (network must be in each route!)
+  // x402-hono expects price as decimal string (e.g., "0.01") and handles conversion internally
   const routes = {
     'POST /analyze': {
-      price: priceInSmallestUnit,
+      price,
       network,
       asset: usdcAddress,
       config: {
@@ -39,7 +37,7 @@ export function createPaymentMiddleware() {
       }
     },
     'POST /analyze-batch': {
-      price: priceInSmallestUnit,
+      price,
       network,
       asset: usdcAddress,
       config: {
