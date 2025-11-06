@@ -4,7 +4,7 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const PORT = process.env.PORT || 3000;
+const PORT = parseInt(process.env.PORT || '3000');
 
 /**
  * Start the Smart Contract Risk Scorer server
@@ -19,7 +19,7 @@ console.log(`
 ║         AI Agent for DeFi Security Analysis                   ║
 ║                                                               ║
 ║         Version: 1.0.0 with X402 Payment System               ║
-║         Mode: ${paymentsEnabled ? 'PAYMENTS ENABLED' : 'FREE TESTING (No Payment)'}                ║
+║         Mode: ${paymentsEnabled ? 'PAYMENTS ENABLED         ' : 'FREE TESTING (No Payment)'}║
 ║                                                               ║
 ╚═══════════════════════════════════════════════════════════════╝
 `);
@@ -29,7 +29,8 @@ console.log('Starting server...\n');
 serve(
   {
     fetch: app.fetch,
-    port: PORT
+    port: PORT,
+    hostname: '0.0.0.0'
   },
   (info) => {
     console.log(`✅ Server running on http://localhost:${info.port}`);
