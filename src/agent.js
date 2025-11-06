@@ -375,7 +375,7 @@ const BatchScanInputSchema = z.object({
 });
 
 // Create agent app
-const app = createAgentApp({
+const { app, addEntrypoint } = createAgentApp({
   name: "Smart Contract Risk Scorer",
   description: "AI agent that analyzes smart contracts for security risks and rug pull indicators",
   version: "1.0.0",
@@ -385,7 +385,7 @@ const app = createAgentApp({
 });
 
 // Add analyze_contract entrypoint
-app.addEntrypoint({
+addEntrypoint({
   key: "analyze_contract",
   description: "Analyze a smart contract for security risks and rug pull indicators. Provides detailed security assessment including code analysis, ownership checks, liquidity verification, and external database checks.",
   inputSchema: ScanInputSchema,
@@ -408,7 +408,7 @@ app.addEntrypoint({
 });
 
 // Add analyze_batch entrypoint
-app.addEntrypoint({
+addEntrypoint({
   key: "analyze_batch",
   description: "Analyze multiple smart contracts at once (max 10). Returns comprehensive risk assessment for each contract. Useful for comparing multiple tokens or analyzing a portfolio.",
   inputSchema: BatchScanInputSchema,
@@ -461,7 +461,7 @@ app.addEntrypoint({
 });
 
 // Health check endpoint (optional, agent-kit provides this automatically)
-app.addEntrypoint({
+addEntrypoint({
   key: "health",
   description: "Health check endpoint to verify the service is running",
   inputSchema: z.object({}),
