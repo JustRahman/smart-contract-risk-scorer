@@ -35,6 +35,34 @@ dotenv.config();
  * Main analysis function
  */
 async function analyzeContract({ contract_address, chain, scan_depth }) {
+  // DEBUG: Log all received parameters and their types
+  console.log('\n========== analyzeContract DEBUG START ==========');
+  console.log('Received parameters:');
+  console.log('  contract_address:', contract_address, '(type:', typeof contract_address, ')');
+  console.log('  chain:', chain, '(type:', typeof chain, ')');
+  console.log('  scan_depth:', scan_depth, '(type:', typeof scan_depth, ')');
+  console.log('================================================\n');
+
+  // DEFENSIVE: Validate all required inputs
+  if (!contract_address) {
+    throw new Error('Missing required parameter: contract_address is undefined or null');
+  }
+  if (typeof contract_address !== 'string') {
+    throw new Error(`Invalid contract_address type: expected string, got ${typeof contract_address}`);
+  }
+  if (!chain) {
+    throw new Error('Missing required parameter: chain is undefined or null');
+  }
+  if (typeof chain !== 'string') {
+    throw new Error(`Invalid chain type: expected string, got ${typeof chain}`);
+  }
+  if (!scan_depth) {
+    throw new Error('Missing required parameter: scan_depth is undefined or null');
+  }
+  if (typeof scan_depth !== 'string') {
+    throw new Error(`Invalid scan_depth type: expected string, got ${typeof scan_depth}`);
+  }
+
   const cache = getCache();
 
   // Check cache first
@@ -403,6 +431,14 @@ addEntrypoint({
   pricing: entrypointPrice,
   handler: async (input) => {
     try {
+      // DEBUG: Log raw input received by handler
+      console.log('\n========== analyze_contract HANDLER DEBUG ==========');
+      console.log('Raw input received by handler:');
+      console.log('  Full input object:', JSON.stringify(input, null, 2));
+      console.log('  Type of input:', typeof input);
+      console.log('  Input keys:', Object.keys(input || {}));
+      console.log('===================================================\n');
+
       const result = await analyzeContract(input);
 
       // Check if analysis failed

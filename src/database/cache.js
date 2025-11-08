@@ -47,6 +47,20 @@ class CacheDB {
    * Store scan result in cache
    */
   set(contractAddress, chain, scanDepth, result) {
+    // DEFENSIVE: Check for undefined/null parameters
+    if (!contractAddress || typeof contractAddress !== 'string') {
+      console.warn('⚠️  cache.set() called with invalid contractAddress:', contractAddress);
+      return;
+    }
+    if (!chain || typeof chain !== 'string') {
+      console.warn('⚠️  cache.set() called with invalid chain:', chain);
+      return;
+    }
+    if (!scanDepth || typeof scanDepth !== 'string') {
+      console.warn('⚠️  cache.set() called with invalid scanDepth:', scanDepth);
+      return;
+    }
+
     const stmt = this.db.prepare(`
       INSERT INTO scan_results (contract_address, chain, scan_depth, result, created_at)
       VALUES (?, ?, ?, ?, ?)
@@ -72,6 +86,20 @@ class CacheDB {
    * Get cached scan result
    */
   get(contractAddress, chain, scanDepth) {
+    // DEFENSIVE: Check for undefined/null parameters
+    if (!contractAddress || typeof contractAddress !== 'string') {
+      console.warn('⚠️  cache.get() called with invalid contractAddress:', contractAddress);
+      return null;
+    }
+    if (!chain || typeof chain !== 'string') {
+      console.warn('⚠️  cache.get() called with invalid chain:', chain);
+      return null;
+    }
+    if (!scanDepth || typeof scanDepth !== 'string') {
+      console.warn('⚠️  cache.get() called with invalid scanDepth:', scanDepth);
+      return null;
+    }
+
     const stmt = this.db.prepare(`
       SELECT result, created_at
       FROM scan_results
@@ -110,6 +138,20 @@ class CacheDB {
    * Delete specific cache entry
    */
   delete(contractAddress, chain, scanDepth) {
+    // DEFENSIVE: Check for undefined/null parameters
+    if (!contractAddress || typeof contractAddress !== 'string') {
+      console.warn('⚠️  cache.delete() called with invalid contractAddress:', contractAddress);
+      return;
+    }
+    if (!chain || typeof chain !== 'string') {
+      console.warn('⚠️  cache.delete() called with invalid chain:', chain);
+      return;
+    }
+    if (!scanDepth || typeof scanDepth !== 'string') {
+      console.warn('⚠️  cache.delete() called with invalid scanDepth:', scanDepth);
+      return;
+    }
+
     const stmt = this.db.prepare(`
       DELETE FROM scan_results
       WHERE contract_address = ? AND chain = ? AND scan_depth = ?
