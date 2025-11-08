@@ -446,7 +446,10 @@ addEntrypoint({
         throw new Error(result.message || 'Analysis failed');
       }
 
-      return result;
+      // Wrap result in output field for agent-kit response format
+      return {
+        output: result
+      };
     } catch (error) {
       console.error('Analysis error:', error);
       throw new Error(error.message || 'An unexpected error occurred during analysis');
@@ -494,11 +497,14 @@ addEntrypoint({
 
       console.log(`✅ Batch analysis complete: ${successful} successful, ${failed} failed\n`);
 
+      // Wrap result in output field for agent-kit response format
       return {
-        batch_size: contracts.length,
-        successful,
-        failed,
-        results: analyzed
+        output: {
+          batch_size: contracts.length,
+          successful,
+          failed,
+          results: analyzed
+        }
       };
     } catch (error) {
       console.error('Batch analysis error:', error);
@@ -515,10 +521,12 @@ addEntrypoint({
   pricing: "0",
   handler: async () => {
     return {
-      status: "healthy",
-      service: "Smart Contract Risk Scorer",
-      version: "1.0.0",
-      timestamp: new Date().toISOString()
+      output: {
+        status: "healthy",
+        service: "Smart Contract Risk Scorer",
+        version: "1.0.0",
+        timestamp: new Date().toISOString()
+      }
     };
   }
 });
