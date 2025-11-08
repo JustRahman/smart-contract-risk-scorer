@@ -439,7 +439,7 @@ addEntrypoint({
       console.log('  Input keys:', Object.keys(input || {}));
       console.log('===================================================\n');
 
-      const result = await analyzeContract(input);
+      const result = await analyzeContract(input.input);
 
       // Check if analysis failed
       if (result.error) {
@@ -462,7 +462,7 @@ addEntrypoint({
   pricing: entrypointPrice,
   handler: async (input) => {
     try {
-      const { contracts, chain, scan_depth } = input;
+      const { contracts, chain, scan_depth } = input.input;
 
       console.log(`\n📊 Batch analysis started: ${contracts.length} contracts on ${chain}`);
 
