@@ -405,30 +405,45 @@ const BatchScanInputSchema = z.object({
 // Create agent app with conditional payment configuration
 const paymentsEnabled = process.env.ENABLE_PAYMENTS === 'true';
 
-const agentConfig = {
+// Agent metadata (name, version, description only)
+const agentMeta = {
   name: "Smart Contract Risk Scorer",
   description: "AI agent that analyzes smart contracts for security risks and rug pull indicators",
   version: "1.0.0"
 };
 
-// Only add payment configuration if payments are enabled
-if (paymentsEnabled) {
-  agentConfig.payTo = process.env.PAY_TO_WALLET || '0x992920386E3D950BC260f99C81FDA12419eD4594';
-  agentConfig.network = process.env.PAYMENT_NETWORK || 'base';
-  agentConfig.facilitatorUrl = process.env.FACILITATOR_URL || 'https://facilitator.daydreams.systems';
+// Build PaymentsConfig object if payments are enabled
+const paymentsConfig = paymentsEnabled ? {
+  payTo: process.env.PAY_TO_WALLET || '0x992920386E3D950BC260f99C81FDA12419eD4594',
+  network: process.env.PAYMENT_NETWORK || 'base',
+  facilitatorUrl: process.env.FACILITATOR_URL || 'https://facilitator.daydreams.systems',
+  defaultPrice: process.env.PAYMENT_AMOUNT || "0.01"
+} : undefined;
+
+// Create agent app with payment configuration in options
+const { app, addEntrypoint } = createAgentApp(agentMeta, {
+  payments: paymentsConfig
+});
+
+// Log payment configuration for debugging
+if (paymentsConfig) {
+  console.log('\n💳 Payment Configuration:');
+  console.log('  payTo:', paymentsConfig.payTo);
+  console.log('  network:', paymentsConfig.network);
+  console.log('  facilitatorUrl:', paymentsConfig.facilitatorUrl);
+  console.log('  defaultPrice:', paymentsConfig.defaultPrice);
+  console.log('');
 }
 
-const { app, addEntrypoint } = createAgentApp(agentConfig);
-
-// Determine pricing based on payment configuration
-const entrypointPrice = paymentsEnabled ? (process.env.PAYMENT_AMOUNT || "0.01") : "0";
+// Determine pricing based on payment configuration (price can be overridden per entrypoint)
+const entrypointPrice = paymentsEnabled ? (process.env.PAYMENT_AMOUNT || "0.01") : undefined;
 
 // Add analyze_contract entrypoint
 addEntrypoint({
   key: "analyze_contract",
   description: "Analyze a smart contract for security risks and rug pull indicators. Provides detailed security assessment including code analysis, ownership checks, liquidity verification, and external database checks.",
-  inputSchema: ScanInputSchema,
-  pricing: entrypointPrice,
+  input: ScanInputSchema,
+  price: entrypointPrice,
   handler: async (input) => {
     try {
       // DEBUG: Log raw input received by handler
@@ -461,8 +476,8 @@ addEntrypoint({
 addEntrypoint({
   key: "analyze_batch",
   description: "Analyze multiple smart contracts at once (max 10). Returns comprehensive risk assessment for each contract. Useful for comparing multiple tokens or analyzing a portfolio.",
-  inputSchema: BatchScanInputSchema,
-  pricing: entrypointPrice,
+  input: BatchScanInputSchema,
+  price: entrypointPrice,
   handler: async (input) => {
     try {
       const { contracts, chain, scan_depth } = input.input;
@@ -517,8 +532,8 @@ addEntrypoint({
 addEntrypoint({
   key: "health",
   description: "Health check endpoint to verify the service is running",
-  inputSchema: z.object({}),
-  pricing: "0",
+  input: z.object({}),
+  price: undefined,  // No payment required for health check
   handler: async () => {
     return {
       output: {
